@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush
 } from 'recharts';
@@ -44,55 +44,11 @@ function App() {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const volChartRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedStocks, startDate, endDate]);
-
-  const handleCheckboxChange = (stock: string) => {
-    setSelectedStocks(prev =>
-      prev.includes(stock) ? prev.filter(s => s !== stock) : [...prev, stock]
-    );
-    setHiddenLines([]);
-  };
-
-  const setLastMonth = () => {
-    const today = new Date();
-    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    setStartDate(formatDate(lastMonth));
-    setEndDate(formatDate(today));
-  };
-  const setLastQuarter = () => {
-    const today = new Date();
-    const lastQuarter = new Date(today.getFullYear(), today.getMonth() - 3, 1);
-    setStartDate(formatDate(lastQuarter));
-    setEndDate(formatDate(today));
-  };
-  const setLastYear = () => {
-    const today = new Date();
-    const lastYear = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-    setStartDate(formatDate(lastYear));
-    setEndDate(formatDate(today));
-  };
-  const setYearToDate = () => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), 0, 1);
-    setStartDate(formatDate(start));
-    setEndDate(formatDate(today));
-  };
-  const setFullYear = (year: number) => {
-    setStartDate(`${year}-01-01`);
-    setEndDate(`${year}-12-31`);
-  };
-  const [yearInput, setYearInput] = useState('2024');
-
-  const handleFullYear = () => {
-    const year = parseInt(yearInput, 10);
-    if (!isNaN(year)) setFullYear(year);
-  };
-
+  // Función auxiliar para formatear fecha a YYYY-MM-DD
   const formatDate = (date: Date) => date.toISOString().split('T')[0];
 
-  const fetchData = async () => {
+  // Definir fetchData con useCallback para que no cambie en cada render
+  const fetchData = useCallback(async () => {
     if (!startDate || !endDate) {
       setError('Por favor selecciona ambas fechas.');
       return;
@@ -179,6 +135,53 @@ function App() {
     } finally {
       setLoading(false);
     }
+  }, [startDate, endDate, selectedStocks]);
+
+  // useEffect que depende de fetchData (que ahora es estable)
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleCheckboxChange = (stock: string) => {
+    setSelectedStocks(prev =>
+      prev.includes(stock) ? prev.filter(s => s !== stock) : [...prev, stock]
+    );
+    setHiddenLines([]);
+  };
+
+  const setLastMonth = () => {
+    const today = new Date();
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    setStartDate(formatDate(lastMonth));
+    setEndDate(formatDate(today));
+  };
+  const setLastQuarter = () => {
+    const today = new Date();
+    const lastQuarter = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+    setStartDate(formatDate(lastQuarter));
+    setEndDate(formatDate(today));
+  };
+  const setLastYear = () => {
+    const today = new Date();
+    const lastYear = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    setStartDate(formatDate(lastYear));
+    setEndDate(formatDate(today));
+  };
+  const setYearToDate = () => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), 0, 1);
+    setStartDate(formatDate(start));
+    setEndDate(formatDate(today));
+  };
+  const setFullYear = (year: number) => {
+    setStartDate(`${year}-01-01`);
+    setEndDate(`${year}-12-31`);
+  };
+  const [yearInput, setYearInput] = useState('2024');
+
+  const handleFullYear = () => {
+    const year = parseInt(yearInput, 10);
+    if (!isNaN(year)) setFullYear(year);
   };
 
   const handleLegendClick = (dataKey: string) => {
@@ -370,7 +373,7 @@ function App() {
       {volData.length > 0 && (
         <div className="chart-container" ref={volChartRef}>
           <div className="chart-header">
-            <h2>Volatilidad expansiva (anualizada, acumulada)</h2>
+            <h2>Volatilidad rolling 20d (anualizada)</h2>
             <button onClick={() => exportChart(volChartRef, 'volatilidad')} className="export-btn">
               Exportar imagen
             </button>

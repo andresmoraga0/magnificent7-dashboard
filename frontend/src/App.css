@@ -1,44 +1,295 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f7fb;
+  color: #1e293b;
+}
+
 .App {
-  text-align: center;
-  padding: 20px;
-  font-family: sans-serif;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
 }
 
 .App-header {
-  background-color: #282c34;
-  padding: 20px;
-  color: white;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.App-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #1e293b, #2d3a4e);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.App-header p {
+  color: #475569;
+  font-size: 0.95rem;
 }
 
 .controls {
-  margin-bottom: 30px;
+  background: white;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
   display: flex;
-  flex-direction: column;
-  gap: 15px;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-start;
 }
 
 .stocks-checkboxes {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
+  flex: 2;
+  min-width: 250px;
+}
+
+.stocks-checkboxes label {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.75rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  font-weight: 500;
+  background: #f8fafc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 2rem;
+  transition: all 0.2s ease;
+}
+
+.stocks-checkboxes label:hover {
+  background: #e2e8f0;
+}
+
+.stocks-checkboxes input {
+  margin-right: 0.5rem;
+  accent-color: #3b82f6;
 }
 
 .date-pickers {
   display: flex;
-  gap: 20px;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 2;
+}
+
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.date-range label {
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+.date-range input {
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  width: 140px;
+}
+
+.quick-ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.quick-ranges button {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 2rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.quick-ranges button:hover {
+  background: #e2e8f0;
+}
+
+.year-input-group {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.year-input-group input {
+  width: 80px;
+  padding: 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 2rem;
+  text-align: center;
+  font-family: inherit;
+  font-size: 0.85rem;
 }
 
 button {
-  padding: 5px 15px;
-  font-size: 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 2rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+button:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.loader {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid white;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .error {
-  color: red;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.hint {
+  background: #fef9e3;
+  color: #b45309;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  background: #f1f5f9;
+  color: #1e293b;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  box-shadow: none;
+}
+
+.export-btn:hover {
+  background: #e2e8f0;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 1rem;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05);
+  transition: box-shadow 0.2s;
+  overflow: visible;
+}
+
+.chart-container:hover {
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+/* Ajustes para Recharts */
+.recharts-wrapper {
+  overflow: visible;
+}
+
+.recharts-brush {
   margin-top: 10px;
+}
+
+/* Ajuste adicional para evitar que el brush tape el eje X */
+.recharts-brush .recharts-brush-traveller {
+  transform: translateY(5px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .App {
+    padding: 1rem;
+  }
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .stocks-checkboxes label {
+    display: inline-block;
+    margin: 0.25rem;
+  }
+  .date-pickers {
+    width: 100%;
+  }
+  .date-range {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .quick-ranges {
+    justify-content: space-between;
+  }
+  .recharts-wrapper {
+    min-width: 600px;
+  }
 }

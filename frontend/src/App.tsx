@@ -34,12 +34,14 @@ function App() {
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2024-12-31');
   const [priceData, setPriceData] = useState<PriceDataPoint[]>([]);
+  const [adjustedData, setAdjustedData] = useState<PriceDataPoint[]>([]);
   const [volData, setVolData] = useState<VolatilityDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hiddenLines, setHiddenLines] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'base' | 'adjusted'>('base');
 
-  const priceChartRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<HTMLDivElement | null>(null);
   const volChartRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -102,6 +104,7 @@ function App() {
     if (selectedStocks.length === 0) {
       setError('Selecciona al menos una acción.');
       setPriceData([]);
+      setAdjustedData([]);
       setVolData([]);
       return;
     }
@@ -121,6 +124,7 @@ function App() {
       if (json.error) {
         setError(json.error);
         setPriceData([]);
+        setAdjustedData([]);
         setVolData([]);
         setLoading(false);
         return;
@@ -130,18 +134,28 @@ function App() {
       if (!dates || dates.length === 0) {
         setError('No hay datos para el rango de fechas seleccionado.');
         setPriceData([]);
+        setAdjustedData([]);
         setVolData([]);
         setLoading(false);
         return;
       }
 
-      const prices = json.prices_base100;
+      const pricesBase = json.prices_base100;
+      const pricesAdj = json.prices_ajustado;
       const vols = json.volatility;
 
       const priceChartData: PriceDataPoint[] = dates.map((date, idx) => {
         const point: PriceDataPoint = { date };
         selectedStocks.forEach(stock => {
-          point[stock] = prices[stock][idx];
+          point[stock] = pricesBase[stock][idx];
+        });
+        return point;
+      });
+
+      const adjustedChartData: PriceDataPoint[] = dates.map((date, idx) => {
+        const point: PriceDataPoint = { date };
+        selectedStocks.forEach(stock => {
+          point[stock] = pricesAdj[stock][idx];
         });
         return point;
       });
@@ -155,10 +169,12 @@ function App() {
       });
 
       setPriceData(priceChartData);
+      setAdjustedData(adjustedChartData);
       setVolData(volChartData);
     } catch (err) {
       setError('Error al conectar con el servidor. Asegúrate de que el backend esté corriendo.');
       setPriceData([]);
+      setAdjustedData([]);
       setVolData([]);
     } finally {
       setLoading(false);
@@ -186,12 +202,13 @@ function App() {
 
   const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'];
   const manyDates = priceData.length > 25;
+  const currentData = viewMode === 'base' ? priceData : adjustedData;
 
   return (
     <div className="App">
       <header className="App-header">
         <h1>Magnificent 7 - Dashboard de Precios</h1>
-        <p>Análisis cuantitativo: precios normalizados (base 100) y volatilidad expansiva (rolling 20d, anualizada)</p>
+        <p>Análisis cuantitativo: precio base 100 y precio ajustado por volatilidad expansiva (acumulada)</p>
       </header>
 
       <div className="controls">
@@ -251,176 +268,170 @@ function App() {
         {loading && <p className="hint">Cargando datos...</p>}
       </div>
 
-      {priceData.length > 0 && (
-        <>
-          <div className="chart-container" ref={priceChartRef}>
-            <div className="chart-header">
-              <h2>Precios (Base 100)</h2>
-              <button onClick={() => exportChart(priceChartRef, 'precios_base100')} className="export-btn">
-                Exportar imagen
+      {currentData.length > 0 && (
+        <div className="chart-container" ref={chartRef}>
+          <div className="chart-header">
+            <div className="toggle-container">
+              <button
+                className={`toggle-btn ${viewMode === 'base' ? 'active' : ''}`}
+                onClick={() => setViewMode('base')}
+              >
+                Precio Base 100
+              </button>
+              <button
+                className={`toggle-btn ${viewMode === 'adjusted' ? 'active' : ''}`}
+                onClick={() => setViewMode('adjusted')}
+              >
+                Precio Ajustado por Volatilidad
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={550}>
-              <LineChart
-                data={priceData}
-                margin={{ top: 60, right: 40, left: 40, bottom: 120 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="date"
-                  tickCount={6}
-                  tickFormatter={(value, idx) => formatXAxis(value, idx, priceData.map(d => d.date))}
-                  tick={{
-                    fontSize: manyDates ? 10 : 12,
-                    angle: manyDates ? -45 : 0,
-                    textAnchor: manyDates ? 'end' : 'middle'
-                  }}
-                  tickMargin={8}
-                />
-                <YAxis
-                  tickFormatter={(value) => {
-                    if (typeof value === 'number') return value.toFixed(2);
-                    return value;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value, name) => {
-                    if (typeof value === 'number') return [value.toFixed(2), name];
-                    return [value, name];
-                  }}
-                  labelFormatter={(label) => `Fecha: ${label}`}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '8px 12px'
-                  }}
-                />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
-                  onClick={(e) => handleLegendClick(e.dataKey as string)}
-                />
-                <text
-                  x="50%"
-                  y={520}
-                  textAnchor="middle"
-                  fill="#3b82f6"
-                  fontSize="12"
-                  fontWeight="normal"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  ← Arrastra aquí para hacer zoom →
-                </text>
-                <Brush
-                  dataKey="date"
-                  height={40}
-                  stroke="#3b82f6"
-                  fill="#f0f9ff"
-                  y={490}
-                  travellerWidth={10}
-                />
-                {selectedStocks.map((stock, idx) => (
-                  <Line
-                    key={stock}
-                    type="monotone"
-                    dataKey={stock}
-                    stroke={colors[idx % colors.length]}
-                    strokeWidth={hiddenLines.includes(stock) ? 0 : 2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                    hide={hiddenLines.includes(stock)}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+            <button onClick={() => exportChart(chartRef, viewMode === 'base' ? 'precios_base100' : 'precios_ajustado')} className="export-btn">
+              Exportar imagen
+            </button>
           </div>
+          <ResponsiveContainer width="100%" height={550}>
+            <LineChart
+              data={currentData}
+              margin={{ top: 60, right: 40, left: 40, bottom: 120 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis
+                dataKey="date"
+                tickCount={6}
+                tickFormatter={(value, idx) => formatXAxis(value, idx, currentData.map(d => d.date))}
+                tick={{
+                  fontSize: manyDates ? 10 : 12,
+                  angle: manyDates ? -45 : 0,
+                  textAnchor: manyDates ? 'end' : 'middle'
+                }}
+                tickMargin={8}
+              />
+              <YAxis
+                tickFormatter={(value) => {
+                  if (typeof value === 'number') return value.toFixed(2);
+                  return value;
+                }}
+              />
+              <Tooltip
+                formatter={(value, name) => {
+                  if (typeof value === 'number') return [value.toFixed(2), name];
+                  return [value, name];
+                }}
+                labelFormatter={(label) => `Fecha: ${label}`}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '8px 12px'
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
+                onClick={(e) => handleLegendClick(e.dataKey as string)}
+              />
+              <text
+                x="50%"
+                y={520}
+                textAnchor="middle"
+                fill="#3b82f6"
+                fontSize="12"
+                fontWeight="normal"
+                style={{ pointerEvents: 'none' }}
+              >
+                ← Arrastra aquí para hacer zoom →
+              </text>
+              <Brush
+                dataKey="date"
+                height={40}
+                stroke="#3b82f6"
+                fill="#f0f9ff"
+                y={490}
+                travellerWidth={10}
+              />
+              {selectedStocks.map((stock, idx) => (
+                <Line
+                  key={stock}
+                  type="monotone"
+                  dataKey={stock}
+                  stroke={colors[idx % colors.length]}
+                  strokeWidth={hiddenLines.includes(stock) ? 0 : 2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  hide={hiddenLines.includes(stock)}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
-          <div className="chart-container" ref={volChartRef}>
-            <div className="chart-header">
-              <h2>Volatilidad expansiva (anualizada, rolling 20d)</h2>
-              <button onClick={() => exportChart(volChartRef, 'volatilidad')} className="export-btn">
-                Exportar imagen
-              </button>
-            </div>
-            <ResponsiveContainer width="100%" height={550}>
-              <LineChart
-                data={volData}
-                margin={{ top: 60, right: 40, left: 40, bottom: 120 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="date"
-                  tickCount={6}
-                  tickFormatter={(value, idx) => formatXAxis(value, idx, volData.map(d => d.date))}
-                  tick={{
-                    fontSize: manyDates ? 10 : 12,
-                    angle: manyDates ? -45 : 0,
-                    textAnchor: manyDates ? 'end' : 'middle'
-                  }}
-                  tickMargin={8}
-                />
-                <YAxis
-                  tickFormatter={(value) => {
-                    if (typeof value === 'number') return `${value.toFixed(2)}%`;
-                    return value;
-                  }}
-                />
-                <Tooltip
-                  formatter={(value, name) => {
-                    if (typeof value === 'number') return [`${value.toFixed(2)}%`, name];
-                    return [value, name];
-                  }}
-                  labelFormatter={(label) => `Fecha: ${label}`}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '8px',
-                    padding: '8px 12px'
-                  }}
-                />
-                <Legend
-                  verticalAlign="top"
-                  align="right"
-                  wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
-                  onClick={(e) => handleLegendClick(e.dataKey as string)}
-                />
-                <text
-                  x="50%"
-                  y={520}
-                  textAnchor="middle"
-                  fill="#3b82f6"
-                  fontSize="12"
-                  fontWeight="normal"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  ← Arrastra aquí para hacer zoom →
-                </text>
-                <Brush
-                  dataKey="date"
-                  height={40}
-                  stroke="#3b82f6"
-                  fill="#f0f9ff"
-                  y={490}
-                  travellerWidth={10}
-                />
-                {selectedStocks.map((stock, idx) => (
-                  <Line
-                    key={stock}
-                    type="monotone"
-                    dataKey={stock}
-                    stroke={colors[idx % colors.length]}
-                    strokeWidth={hiddenLines.includes(stock) ? 0 : 2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                    hide={hiddenLines.includes(stock)}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+      {volData.length > 0 && (
+        <div className="chart-container" ref={volChartRef}>
+          <div className="chart-header">
+            <h2>Volatilidad expansiva (anualizada, acumulada)</h2>
+            <button onClick={() => exportChart(volChartRef, 'volatilidad')} className="export-btn">
+              Exportar imagen
+            </button>
           </div>
-        </>
+          <ResponsiveContainer width="100%" height={500}>
+            <LineChart
+              data={volData}
+              margin={{ top: 60, right: 40, left: 40, bottom: 80 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis
+                dataKey="date"
+                tickCount={6}
+                tickFormatter={(value, idx) => formatXAxis(value, idx, volData.map(d => d.date))}
+                tick={{
+                  fontSize: manyDates ? 10 : 12,
+                  angle: manyDates ? -45 : 0,
+                  textAnchor: manyDates ? 'end' : 'middle'
+                }}
+                tickMargin={8}
+              />
+              <YAxis
+                tickFormatter={(value) => {
+                  if (typeof value === 'number') return `${value.toFixed(2)}%`;
+                  return value;
+                }}
+              />
+              <Tooltip
+                formatter={(value, name) => {
+                  if (typeof value === 'number') return [`${value.toFixed(2)}%`, name];
+                  return [value, name];
+                }}
+                labelFormatter={(label) => `Fecha: ${label}`}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  padding: '8px 12px'
+                }}
+              />
+              <Legend
+                verticalAlign="top"
+                align="right"
+                wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
+                onClick={(e) => handleLegendClick(e.dataKey as string)}
+              />
+              {selectedStocks.map((stock, idx) => (
+                <Line
+                  key={stock}
+                  type="monotone"
+                  dataKey={stock}
+                  stroke={colors[idx % colors.length]}
+                  strokeWidth={hiddenLines.includes(stock) ? 0 : 2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
+                  hide={hiddenLines.includes(stock)}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

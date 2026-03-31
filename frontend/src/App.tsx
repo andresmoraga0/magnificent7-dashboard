@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush
 } from 'recharts';
@@ -17,8 +17,15 @@ interface VolatilityDataPoint {
   [stock: string]: string | number;
 }
 
-const formatXAxis = (dateStr: string) => {
+const formatXAxis = (dateStr: string, index: number, allDates: string[]) => {
   const date = new Date(dateStr);
+  if (allDates && allDates.length > 0) {
+    const firstYear = new Date(allDates[0]).getFullYear();
+    const lastYear = new Date(allDates[allDates.length - 1]).getFullYear();
+    if (lastYear - firstYear > 2) {
+      return date.getFullYear().toString();
+    }
+  }
   return date.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
 };
 
@@ -34,6 +41,10 @@ function App() {
 
   const priceChartRef = useRef<HTMLDivElement | null>(null);
   const volChartRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedStocks, startDate, endDate]);
 
   const handleCheckboxChange = (stock: string) => {
     setSelectedStocks(prev =>
@@ -90,6 +101,8 @@ function App() {
     }
     if (selectedStocks.length === 0) {
       setError('Selecciona al menos una acción.');
+      setPriceData([]);
+      setVolData([]);
       return;
     }
 
@@ -171,29 +184,31 @@ function App() {
     }
   };
 
-  const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#387908', '#d0ed57', '#a4de6c'];
+  const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2'];
   const manyDates = priceData.length > 25;
 
   return (
     <div className="App">
       <header className="App-header">
         <h1>Magnificent 7 - Dashboard de Precios</h1>
-        <p>Visualiza precios normalizados y volatilidad expansiva</p>
+        <p>Análisis cuantitativo: precios normalizados (base 100) y volatilidad expansiva (rolling 20d, anualizada)</p>
       </header>
 
       <div className="controls">
-        <div className="stocks-checkboxes">
+        <div className="stocks-grid">
           <label>Selecciona acciones:</label>
-          {STOCKS.map((stock) => (
-            <label key={stock}>
-              <input
-                type="checkbox"
-                checked={selectedStocks.includes(stock)}
-                onChange={() => handleCheckboxChange(stock)}
-              />
-              {stock}
-            </label>
-          ))}
+          <div className="grid-container">
+            {STOCKS.map((stock) => (
+              <label key={stock} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedStocks.includes(stock)}
+                  onChange={() => handleCheckboxChange(stock)}
+                />
+                {stock}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="date-pickers">
@@ -228,41 +243,33 @@ function App() {
               <button onClick={handleFullYear}>Año completo</button>
             </div>
           </div>
-          <button onClick={fetchData} disabled={loading}>
-            {loading ? (
-              <>
-                <span className="loader"></span> Cargando...
-              </>
-            ) : (
-              'Actualizar gráficos'
-            )}
-          </button>
         </div>
         {error && <p className="error">{error}</p>}
         {selectedStocks.length === 0 && !error && (
           <p className="hint">Selecciona al menos una acción para ver los gráficos.</p>
         )}
+        {loading && <p className="hint">Cargando datos...</p>}
       </div>
 
       {priceData.length > 0 && (
         <>
           <div className="chart-container" ref={priceChartRef}>
             <div className="chart-header">
-              <h2>📈 Precios (Base 100)</h2>
+              <h2>Precios (Base 100)</h2>
               <button onClick={() => exportChart(priceChartRef, 'precios_base100')} className="export-btn">
-                📸 Exportar PNG
+                Exportar imagen
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={500}>
+            <ResponsiveContainer width="100%" height={550}>
               <LineChart
                 data={priceData}
-                margin={{ top: 60, right: 20, left: 20, bottom: 80 }}
+                margin={{ top: 60, right: 40, left: 40, bottom: 120 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="date"
                   tickCount={6}
-                  tickFormatter={formatXAxis}
+                  tickFormatter={(value, idx) => formatXAxis(value, idx, priceData.map(d => d.date))}
                   tick={{
                     fontSize: manyDates ? 10 : 12,
                     angle: manyDates ? -45 : 0,
@@ -295,7 +302,25 @@ function App() {
                   wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
                   onClick={(e) => handleLegendClick(e.dataKey as string)}
                 />
-                <Brush dataKey="date" height={30} stroke="#3b82f6" y={460} />
+                <text
+                  x="50%"
+                  y={520}
+                  textAnchor="middle"
+                  fill="#3b82f6"
+                  fontSize="12"
+                  fontWeight="normal"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  ← Arrastra aquí para hacer zoom →
+                </text>
+                <Brush
+                  dataKey="date"
+                  height={40}
+                  stroke="#3b82f6"
+                  fill="#f0f9ff"
+                  y={490}
+                  travellerWidth={10}
+                />
                 {selectedStocks.map((stock, idx) => (
                   <Line
                     key={stock}
@@ -314,21 +339,21 @@ function App() {
 
           <div className="chart-container" ref={volChartRef}>
             <div className="chart-header">
-              <h2>📊 Volatilidad expansiva (anualizada, rolling 20d)</h2>
+              <h2>Volatilidad expansiva (anualizada, rolling 20d)</h2>
               <button onClick={() => exportChart(volChartRef, 'volatilidad')} className="export-btn">
-                📸 Exportar PNG
+                Exportar imagen
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={500}>
+            <ResponsiveContainer width="100%" height={550}>
               <LineChart
                 data={volData}
-                margin={{ top: 60, right: 20, left: 20, bottom: 80 }}
+                margin={{ top: 60, right: 40, left: 40, bottom: 120 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis
                   dataKey="date"
                   tickCount={6}
-                  tickFormatter={formatXAxis}
+                  tickFormatter={(value, idx) => formatXAxis(value, idx, volData.map(d => d.date))}
                   tick={{
                     fontSize: manyDates ? 10 : 12,
                     angle: manyDates ? -45 : 0,
@@ -361,7 +386,25 @@ function App() {
                   wrapperStyle={{ paddingBottom: '10px', cursor: 'pointer' }}
                   onClick={(e) => handleLegendClick(e.dataKey as string)}
                 />
-                <Brush dataKey="date" height={30} stroke="#3b82f6" y={460} />
+                <text
+                  x="50%"
+                  y={520}
+                  textAnchor="middle"
+                  fill="#3b82f6"
+                  fontSize="12"
+                  fontWeight="normal"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  ← Arrastra aquí para hacer zoom →
+                </text>
+                <Brush
+                  dataKey="date"
+                  height={40}
+                  stroke="#3b82f6"
+                  fill="#f0f9ff"
+                  y={490}
+                  travellerWidth={10}
+                />
                 {selectedStocks.map((stock, idx) => (
                   <Line
                     key={stock}
